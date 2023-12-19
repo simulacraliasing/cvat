@@ -267,6 +267,8 @@ AUTHENTICATION_BACKENDS = [
 # https://github.com/pennersr/django-allauth
 ACCOUNT_EMAIL_VERIFICATION = 'none'
 ACCOUNT_AUTHENTICATION_METHOD = 'username_email'
+ACCOUNT_CONFIRM_EMAIL_ON_GET = strtobool(os.getenv('CVAT_ACCOUNT_CONFIRM_EMAIL_ON_GET', 'false'))
+ACCOUNT_EMAIL_REQUIRED = strtobool(os.getenv('CVAT_ACCOUNT_EMAIL_REQUIRED', 'false'))
 
 # set UI url to redirect after a successful e-mail confirmation
 #changed from '/auth/login' to '/auth/email-confirmation' for email confirmation message
@@ -717,7 +719,13 @@ EXTRA_RULES_PATHS = []
 # By default, email backend is django.core.mail.backends.smtp.EmailBackend
 # But it won't work without additional configuration, so we set it to None
 # to check configuration and throw ImproperlyConfigured if thats a case
-EMAIL_BACKEND = None
+EMAIL_BACKEND = os.getenv('CVAT_EMAIL_BACKEND', None)
+EMAIL_HOST = os.getenv('CVAT_EMAIL_HOST', None)
+EMAIL_PORT = int(os.getenv('CVAT_EMAIL_PORT', 465))
+EMAIL_HOST_USER = os.getenv('CVAT_EMAIL_HOST_USER', None)
+EMAIL_HOST_PASSWORD = os.getenv('CVAT_EMAIL_HOST_PASSWORD', None)
+EMAIL_USE_SSL = strtobool(os.getenv('CVAT_EMAIL_USE_SSL', 'false'))
+DEFAULT_FROM_EMAIL = os.getenv('CVAT_DEFAULT_FROM_EMAIL', None)
 
 ONE_RUNNING_JOB_IN_QUEUE_PER_USER = strtobool(os.getenv('ONE_RUNNING_JOB_IN_QUEUE_PER_USER', 'false'))
 

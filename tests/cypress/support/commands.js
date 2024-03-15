@@ -1,5 +1,5 @@
 // Copyright (C) 2020-2022 Intel Corporation
-// Copyright (C) 2022-2023 CVAT.ai Corporation
+// Copyright (C) 2022-2024 CVAT.ai Corporation
 //
 // SPDX-License-Identifier: MIT
 
@@ -33,7 +33,7 @@ Cypress.Commands.add('login', (username = Cypress.env('user'), password = Cypres
 });
 
 Cypress.Commands.add('logout', () => {
-    cy.get('.cvat-header-menu-user-dropdown-user').trigger('mouseover');
+    cy.get('.cvat-header-menu-user-dropdown-user').click();
     cy.get('span[aria-label="logout"]').click();
     cy.url().should('include', '/auth/login');
     cy.visit('/auth/login');
@@ -284,7 +284,7 @@ Cypress.Commands.add('headlessCreateTask', (taskSpec, dataSpec) => {
         }
 
         const result = await task.save();
-        return cy.wrap({ taskID: result.id, jobID: result.jobs.map((job) => job.id) });
+        return cy.wrap({ taskID: result.id, jobIDs: result.jobs.map((job) => job.id) });
     });
 });
 
@@ -385,16 +385,13 @@ Cypress.Commands.add('pressSplitControl', () => {
     cy.document().then((doc) => {
         const [el] = doc.getElementsByClassName('cvat-extra-controls-control');
         if (el) {
-            el.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+            cy.get('.cvat-extra-controls-control').click();
         }
-    });
 
-    cy.get('.cvat-split-track-control').click();
+        cy.get('.cvat-split-track-control').click();
 
-    cy.document().then((doc) => {
-        const [el] = doc.getElementsByClassName('cvat-extra-controls-control');
         if (el) {
-            el.dispatchEvent(new MouseEvent('mouseout', { bubbles: true }));
+            cy.get('body').click();
         }
     });
 });
@@ -406,7 +403,7 @@ Cypress.Commands.add('openTaskJob', (taskName, jobID = 0, removeAnnotations = tr
 
 Cypress.Commands.add('interactControlButton', (objectType) => {
     cy.get('body').trigger('mousedown');
-    cy.get(`.cvat-${objectType}-control`).trigger('mouseover');
+    cy.get(`.cvat-${objectType}-control`).click();
     cy.get(`.cvat-${objectType}-popover`)
         .should('be.visible')
         .should('have.attr', 'style')
@@ -584,8 +581,13 @@ Cypress.Commands.add('createPolygon', (createPolygonParams) => {
 });
 
 Cypress.Commands.add('openSettings', () => {
-    cy.get('.cvat-header-menu-user-dropdown').trigger('mouseover');
-    cy.get('.anticon-setting').should('exist').and('be.visible').click();
+    cy.get('.cvat-header-menu-user-dropdown').click();
+    cy.get('.cvat-header-menu')
+        .should('exist')
+        .and('be.visible')
+        .find('[role="menuitem"]')
+        .filter(':contains("Settings")')
+        .click();
     cy.get('.cvat-settings-modal').should('be.visible');
 });
 
@@ -912,7 +914,6 @@ Cypress.Commands.add('changeColorViaBadge', (labelColor) => {
             cy.contains('hex').prev().type(labelColor);
             cy.contains('button', 'Ok').click();
         });
-    cy.get('.cvat-label-color-picker').should('be.hidden');
 });
 
 Cypress.Commands.add('collectLabelsName', () => {
@@ -955,6 +956,7 @@ Cypress.Commands.add('addNewLabel', ({ name, color }, additionalAttrs) => {
     if (color) {
         cy.get('.cvat-change-task-label-color-badge').click();
         cy.changeColorViaBadge(color);
+        cy.get('.cvat-label-color-picker').should('be.hidden');
     }
     if (additionalAttrs) {
         for (let i = 0; i < additionalAttrs.length; i++) {
@@ -1278,8 +1280,7 @@ Cypress.Commands.add('goToCloudStoragesPage', () => {
 });
 
 Cypress.Commands.add('deleteCloudStorage', (displayName) => {
-    cy.get('.cvat-cloud-storage-item-menu-button').trigger('mousemove');
-    cy.get('.cvat-cloud-storage-item-menu-button').trigger('mouseover');
+    cy.get('.cvat-cloud-storage-item-menu-button').click();
     cy.get('.ant-dropdown')
         .not('.ant-dropdown-hidden')
         .within(() => {
@@ -1353,7 +1354,7 @@ Cypress.Commands.add('deleteJob', (jobID) => {
     cy.get('.cvat-job-item').contains('a', `Job #${jobID}`)
         .parents('.cvat-job-item')
         .find('.cvat-job-item-more-button')
-        .trigger('mouseover');
+        .click();
     cy.get('.ant-dropdown')
         .not('.ant-dropdown-hidden')
         .within(() => {
@@ -1419,7 +1420,7 @@ Cypress.Commands.add('drawMask', (instructions) => {
 });
 
 Cypress.Commands.add('startMaskDrawing', () => {
-    cy.get('.cvat-draw-mask-control ').trigger('mouseover');
+    cy.get('.cvat-draw-mask-control ').click();
     cy.get('.cvat-draw-mask-popover').should('exist').and('be.visible').within(() => {
         cy.get('button').click();
     });
@@ -1429,6 +1430,98 @@ Cypress.Commands.add('startMaskDrawing', () => {
 Cypress.Commands.add('finishMaskDrawing', () => {
     cy.get('.cvat-brush-tools-brush').click();
     cy.get('.cvat-brush-tools-finish').click();
+});
+
+Cypress.Commands.add('sliceShape', (
+    object,
+    coordinates,
+    options = {
+        shortcut: null,
+        slipMode: false,
+    },
+) => {
+    const { shortcut, slipMode } = options;
+    if (shortcut) {
+        cy.get('body').type(shortcut);
+    } else {
+        cy.get('.cvat-slice-control').click();
+        cy.get('.cvat-slice-control').trigger('mouseleave');
+    }
+
+    cy.get('.cvat-canvas-hints-container').within(() => {
+        cy.contains('Click a mask or polygon shape you would like to slice').should('exist');
+    });
+
+    const [initialX, initialY] = coordinates.shift();
+    cy.get(object).click(initialX, initialY);
+    cy.get('.cvat-canvas-hints-container').within(() => {
+        cy.contains('Set initial point on the shape contour').should('exist');
+    });
+
+    cy.get('.cvat-canvas-container').then(($canvas) => {
+        if (slipMode) {
+            const [initX, initY] = coordinates.shift();
+            cy.wrap($canvas).click(initX, initY);
+            const [endX, endY] = coordinates.pop();
+
+            for (const [x, y] of coordinates) {
+                cy.wrap($canvas).trigger('mousemove', x, y, { button: 0, shiftKey: true, bubbles: true });
+            }
+            cy.wrap($canvas).click(endX, endY);
+        } else {
+            for (const [x, y] of coordinates) {
+                cy.wrap($canvas).click(x, y);
+            }
+        }
+    });
+});
+
+Cypress.Commands.add('joinShapes', (
+    objects,
+    coordinates,
+    options = {
+        shortcut: null,
+    },
+) => {
+    const { shortcut } = options;
+
+    const interactWithTool = () => {
+        if (shortcut) {
+            cy.get('body').type(shortcut);
+        } else {
+            cy.get('.cvat-join-control').click();
+            cy.get('.cvat-join-control').trigger('mouseleave');
+        }
+    };
+    interactWithTool();
+
+    cy.get('.cvat-canvas-hints-container').within(() => {
+        cy.contains('Click masks you would like to join').should('exist');
+    });
+
+    for (const [index, object] of objects.entries()) {
+        cy.get(object).click(coordinates[index][0], coordinates[index][1]);
+    }
+    interactWithTool();
+});
+
+Cypress.Commands.add('interactAnnotationObjectMenu', (parentSelector, button) => {
+    cy.get(parentSelector).within(() => {
+        cy.get('[aria-label="more"]').click();
+    });
+
+    cy.document().find('.cvat-object-item-menu').within(() => {
+        cy.contains('button', button).click();
+    });
+});
+
+Cypress.Commands.add('hideTooltips', () => {
+    cy.document().then((doc) => {
+        const tooltips = Array.from(doc.querySelectorAll('.ant-tooltip'));
+        if (tooltips.length > 0) {
+            cy.get('.ant-tooltip').invoke('hide');
+        }
+    });
 });
 
 Cypress.Commands.overwrite('visit', (orig, url, options) => {
